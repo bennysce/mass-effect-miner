@@ -1,0 +1,325 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Full fräs!</title>
+        <script src="//cdn.jsdelivr.net/phaser/2.6.2/phaser.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="style.css">
+    </head>
+    <body>
+
+    <div class="container">
+
+    <script type="text/javascript">
+
+    window.onload = function() {
+
+        //  Note that this html file is set to pull down Phaser 2.5.0 from the JS Delivr CDN.
+        //  Although it will work fine with this tutorial, it's almost certainly not the most current version.
+        //  Be sure to replace it with an updated version before you powerupt experimenting with adding your own code.
+
+        var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+        //var game = new Phaser.Game('100%', '100%', Phaser.AUTO, 'phaser-example', { preload: preload, create: create, update: update, render: render });
+        
+        var strength = 0;
+        var strengthText;
+        var platforms;
+        var player;
+        var cursors;
+        var powerups;
+        
+        // Win text
+        var bar;
+        var text;
+    
+        function preload () {
+
+            game.load.image('sky', 'assets/sky.png');
+            game.load.image('ground', 'assets/platform.png');
+            game.load.image('tile', 'assets/square.png');
+            game.load.image('powerup', 'assets/diamond.png');
+            game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
+            
+            game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+
+            //game.scale.scaleMode = Phaser.ScaleManager.RESIZE;
+        /*  game.scale.setResizeCallback(function() {
+            game.scale.setMaximum();
+          });*/
+
+        }
+        
+        function gofull() {
+
+            if (game.scale.isFullScreen)
+            {
+                game.scale.stopFullScreen();
+            }
+            else
+            {
+                game.scale.poweruptFullScreen(false);
+            }
+        
+        }
+        
+        function createInput() {
+            //game.input.onDown.add(gofull, this);
+            cursors = game.input.keyboard.createCursorKeys();
+            
+            var space = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+            space.onDown.add(drill, this);
+            space.onUp.add(stopDrill, this);
+        }
+        
+        var tiles;
+        function createWorld() {
+            
+            //  A simple background for our game
+            game.stage.backgroundColor = '#4d4d4d';
+            game.add.sprite(0, 0, 'sky');
+
+            platforms = game.add.group();
+            platforms.enableBody = true;
+            var ground = platforms.create(0, game.world.height - 64, 'ground');
+            ground.scale.setTo(2, 2);
+            ground.body.immovable = true;
+            
+            tiles = game.add.group();
+            tiles.enableBody = true;
+
+            var tileSize = 32;
+            var scale = 1;
+            var scaledTileSize = tileSize * scale;
+            var rows = 10 / scale;
+            var columns = 25 / scale;
+            var placedGold = false;
+            for (var x = 0; x < columns; x++)
+            {
+                for (var y = 0; y < rows; y++)
+                {
+                    var tile = tiles.create(x * scaledTileSize, 230 + y * scaledTileSize, 'tile');
+                    tile.scale.setTo(scale, scale);
+                    tile.body.immovable = true;
+    
+                    if(!placedGold && y == rows-1 && (Math.random() * 100 < 20 || (x == columns-1))){
+                        placedGold = true;
+                        tile.ffType = 'gold';
+                        tile.tint = '0xffff00';
+                        tile.ffMaxHealth = 8;
+                        tile.ffHealth = 8;
+                    } else if (Math.random() * 100 < 25) {
+                        tile.ffType = 'plexi';
+                        tile.tint = '0x4188d2';
+                        tile.ffMaxHealth = 2;
+                        tile.ffHealth = 2;
+                    } else if (Math.random() * 100 < 50) {
+                        tile.ffType = 'steel';
+                        tile.tint = '0x26517c';
+                        tile.ffMaxHealth = 5;
+                        tile.ffHealth = 5;
+                    } else {
+                        tile.ffType = 'wood';
+                        tile.tint = '0xa64b00';
+                        tile.ffMaxHealth = 3;
+                        tile.ffHealth = 3;
+                    }
+                }                  
+            }
+        }
+
+
+        function createPlayer() {
+            // The player and its settings
+            player = game.add.sprite(game.world.width/2, game.world.height - 700, 'dude');
+        
+            //  We need to enable physics on the player
+            game.physics.arcade.enable(player);
+        
+            //  Player physics properties. Give the little guy a slight bounce.
+            player.body.setSize(player.body.halfWidth, player.body.height, player.body.halfWidth/2);
+            player.body.bounce.y = 0;
+            player.body.gravity.y = 600;
+            player.body.collideWorldBounds = true;
+        
+            //  Our two animations, walking left and right.
+            player.animations.add('left', [0, 1, 2, 3], 10, true);
+            player.animations.add('drill', [0, 3], 50, true);
+            player.animations.add('right', [5, 6, 7, 8], 10, true);            
+        }
+        
+        var debugText;
+        function createUI(){
+            game.add.text(16, 16, 'FULL FRÄS!', { fontSize: '40px', fill: '#ff0' });
+            debugText = game.add.text(16, 50, 'play with arrows and space', { fontSize: '20px', fill: '#fff' });
+            strengthText = game.add.text(0, 0, 'Fräs-power: 0', { fontSize: '20px', fill: '#000', boundsAlignH: "right", boundsAlignV: "middle" });
+            strengthText.setTextBounds(0, 20, 790, 10);
+
+            bar = game.add.graphics();
+            bar.beginFill(0x000000, 0.2);
+            bar.drawRect(0, 100, 800, 100);
+            bar.visible = false;
+    
+            var winText = "GRATTIS!\nDU HAR VUNNIT 500kr TILL FRÄSSTÅL!";
+            var style = { font: "bold 32px Arial", fill: "#fff", boundsAlignH: "center", boundsAlignV: "middle", align: "center" };
+            text = game.add.text(0, 0, winText, style);
+            text.visible = false;
+            text.setShadow(3, 3, 'rgba(0,0,0,0.5)', 2);
+            //  We'll set the bounds to be from x0, y100 and be 800px wide by 100px high
+            text.setTextBounds(0, 100, 800, 100);
+        }
+        
+        function createPickups() {
+            powerups = game.add.group();
+            powerups.enableBody = true;
+        }
+
+        function create() {
+            game.physics.startSystem(Phaser.Physics.ARCADE);
+            createInput();            
+            createWorld();        
+            createPickups();
+            createUI();
+            createPlayer();
+        }
+        
+        var canDrill = true;
+        function updateCounter() {
+            canDrill = true;
+        }
+        
+        var drilling = false;
+        function drill() {
+            drilling = true;
+            player.animations.play('left');
+        }
+        function stopDrill() {
+            drilling = false;
+            player.animations.stop();
+        }
+
+        var hasJumped = true;
+        
+        
+        function hurtTile (tile){
+            tile.ffHealth -= 1; 
+            tile.alpha = tile.ffHealth / tile.ffMaxHealth;
+        }
+        
+        function killTiles (player, tile) {
+        
+            if(!canDrill || (!hasJumped && !drilling) || tile.y < player.y + 40){
+                return;
+            }
+            
+            hasJumped = false;
+            canDrill = false;
+            game.time.events.add(Phaser.Timer.SECOND * 0.5, updateCounter, this);
+
+            if(tile.ffType == 'gold')
+            {
+                if(strength >= 20) {
+                    hurtTile(tile);
+                    if(tile.ffHealth <= 0){
+                        bar.visible = true;
+                        text.visible = true;
+                    }
+                }
+            }
+            else if(tile.ffType == 'steel')
+            {
+                if(strength >= 10) {
+                    hurtTile(tile);
+                }
+            }
+            else if(tile.ffType == 'plexi')
+            {
+                if(strength >= 2) {
+                    hurtTile(tile);
+                }
+            }
+            else
+            {
+                hurtTile(tile);
+            }
+            
+            if(tile.ffHealth <= 0){
+                var powerup = powerups.create(tile.position.x, 0, 'powerup');
+                powerup.body.bounce.y = 0.3;
+                powerup.body.gravity.y = 600;
+            }
+
+            if(tile.ffHealth <= 0){
+                tile.kill();
+            }
+            
+        }
+
+        function update() {
+            game.physics.arcade.overlap(player, tiles, killTiles, null, this);
+            game.physics.arcade.overlap(player, powerups, collectPowerup, null, this);
+            game.physics.arcade.collide(player, tiles);
+            game.physics.arcade.collide(player, platforms);
+            game.physics.arcade.collide(powerups, platforms);
+            game.physics.arcade.collide(powerups, tiles);
+            
+            //  Reset the players velocity (movement)
+            player.body.velocity.x = 0;
+        
+            if (cursors.left.isDown)
+            {
+                //  Move to the left
+                player.body.velocity.x = -150;
+        
+                player.animations.play('left');
+            }
+            else if (cursors.right.isDown)
+            {
+                //  Move to the right
+                player.body.velocity.x = 150;
+        
+                player.animations.play('right');
+            }
+            else if(!drilling)
+            {
+                //  Stand still
+                player.animations.stop();
+        
+                player.frame = 4;
+            }
+        
+            if(!player.body.touching.down){
+                hasJumped = true;
+            }
+            //debugText.text = 'hasJumped: ' + hasJumped ? 'true' : 'false';
+
+            //  Allow the player to jump if they are touching the ground.
+            if (cursors.up.isDown)
+            {
+                player.body.velocity.y = -150;
+            }
+        }
+
+        function collectPowerup (player, powerup) {
+        
+            // Removes the powerup from the screen
+            powerup.kill();
+            
+            //  Add and update the strength
+            strength += 1;
+            strengthText.text = 'Fräs-power: ' + strength;
+        }
+        
+        function render() {
+
+            //game.debug.geom(text.textBounds);
+
+        }
+
+    };
+
+    </script>
+
+</div>
+
+    </body>
+</html>
