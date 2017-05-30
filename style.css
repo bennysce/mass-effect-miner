@@ -1,3 +1,20 @@
+@font-face {
+    font-family: Ailerons;
+    src: url("assets/Ailerons.otf") format("opentype");
+}
+
+body {
+    font-family: Ailerons, sans-serif;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    background-color: #333333;
+}
+
 canvas {
     margin: 0 auto;
+}
+
+.container {
+    background-color: transparent;
 }
